@@ -8,14 +8,37 @@ body {
     margin: 0;
 }
 
-.login-container {
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 450px;
+    position: relative;
+    min-height: 400px;
+}
+
+.auth-panel {
     background-color: #ffffff;
     padding: 30px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     width: 100%;
-    max-width: 400px;
     text-align: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 1;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.auth-panel.hidden,
+#dashboardPanel.hidden { /* Aplica a mesma classe para o dashboardPanel */
+    opacity: 0;
+    pointer-events: none;
+    z-index: -1;
 }
 
 h2 {
@@ -35,9 +58,10 @@ h2 {
     font-weight: bold;
 }
 
-.input-group input[type="text"],
-.input-group input[type="password"] {
-    width: calc(100% - 20px); /* 100% menos o padding */
+.input-group input[type="email"],
+.input-group input[type="password"],
+.input-group input[type="text"] {
+    width: calc(100% - 20px);
     padding: 10px;
     border: 1px solid #dddddd;
     border-radius: 4px;
@@ -54,6 +78,7 @@ button {
     cursor: pointer;
     transition: background-color 0.3s ease;
     width: 100%;
+    margin-top: 10px;
 }
 
 button:hover {
@@ -66,9 +91,43 @@ button:hover {
 }
 
 .message.success {
-    color: #28a745; /* Verde para sucesso */
+    color: #28a745;
 }
 
 .message.error {
-    color: #dc3545; /* Vermelho para erro */
+    color: #dc3545;
+}
+
+.message.info { /* Adicionado para mensagens de informação/status */
+    color: #007bff;
+}
+
+.switch-form {
+    margin-top: 15px;
+    font-size: 0.9em;
+}
+
+.switch-form a {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.switch-form a:hover {
+    text-decoration: underline;
+}
+
+/* Estilo para o dashboardPanel, para que ele ocupe o mesmo espaço do auth-container */
+#dashboardPanel {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 450px;
+    text-align: center;
+    position: absolute; /* Para alinhar com o auth-container */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centraliza */
 }

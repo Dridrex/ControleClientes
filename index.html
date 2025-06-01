@@ -3,26 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Login</title>
+    <title>Controle Financeiro</title>
     <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" async></script>
+    
+    <script src="script.js" async></script>
 </head>
 <body>
-    <div class="login-container">
-        <h2>Login</h2>
-        <form id="loginForm">
-            <div class="input-group">
-                <label for="username">Usuário:</label>
-                <input type="text" id="username" name="username" required>
-            </div>
-            <div class="input-group">
-                <label for="password">Senha:</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit">Entrar</button>
-            <p id="message" class="message"></p>
-        </form>
+    <div class="auth-container">
+        <div id="registerPanel" class="auth-panel">
+            <h2>Registrar Nova Conta</h2>
+            <form id="registerForm">
+                <div class="input-group">
+                    <label for="registerEmail">E-mail:</label>
+                    <input type="email" id="registerEmail" name="registerEmail" required>
+                </div>
+                <div class="input-group">
+                    <label for="registerPassword">Senha:</label>
+                    <input type="password" id="registerPassword" name="registerPassword" required>
+                </div>
+                <div class="input-group">
+                    <label for="confirmPassword">Confirmar Senha:</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                </div>
+                <button type="submit">Registrar</button>
+                <p id="registerMessage" class="message"></p>
+                <p class="switch-form">Já tem uma conta? <a href="#" id="showLogin">Faça Login</a></p>
+            </form>
+        </div>
+
+        <div id="loginPanel" class="auth-panel hidden">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <div class="input-group">
+                    <label for="loginEmail">E-mail:</label>
+                    <input type="email" id="loginEmail" name="loginEmail" required>
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Senha:</label>
+                    <input type="password" id="loginPassword" name="loginPassword" required>
+                </div>
+                <button type="submit">Entrar</button>
+                <p id="loginMessage" class="message"></p>
+                <p class="switch-form">Não tem uma conta? <a href="#" id="showRegister">Cadastre-se</a></p>
+            </form>
+        </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="dashboardPanel" class="hidden">
+        <h2>Bem-vindo ao Controle Financeiro!</h2>
+        <p>Você está logado. Este é o seu painel de controle.</p>
+        <button id="logoutButton">Sair</button>
+    </div>
+
 </body>
 </html>
