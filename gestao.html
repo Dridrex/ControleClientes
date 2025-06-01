@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Gestão - Controle Financeiro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container"> <div id="dashboard-view"> <header class="dashboard-header">
+                <h1>Painel de Controle</h1>
+                <div class="user-info">
+                    <span id="user-greeting">Carregando...</span>
+                    <button id="logout-button" class="auth-button secondary" data-original-text="Sair">Sair</button>
+                </div>
+            </header>
+            <section class="dashboard-content">
+                <p>Bem-vindo à sua área de gestão.</p>
+                
+                <div id="client-management-section">
+                    <h3>Clientes da Filial</h3>
+                    <div id="client-list-container">
+                        <ul id="client-list">
+                            </ul>
+                        <p id="client-list-message" class="message-area"></p>
+                    </div>
+                </div>
+
+                <div id="edit-client-modal" class="modal hidden">
+                    <div class="modal-content">
+                        <span id="close-modal-button" class="close-modal-button">&times;</span>
+                        <h4>Editar Cliente</h4>
+                        <form id="edit-client-form">
+                            <input type="hidden" id="edit-client-id">
+                            <div class="input-group">
+                                <label for="edit-nome-usuario">Nome de Usuário:</label>
+                                <input type="text" id="edit-nome-usuario" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="edit-email">Email:</label>
+                                <input type="email" id="edit-email" disabled>
+                            </div>
+                            <div class="input-group checkbox-group">
+                                <input type="checkbox" id="edit-adm">
+                                <label for="edit-adm">Administrador</label>
+                            </div>
+                            <div class="input-group checkbox-group">
+                                <input type="checkbox" id="edit-client">
+                                <label for="edit-client">Cliente</label>
+                            </div>
+                            <div class="input-group checkbox-group">
+                                <input type="checkbox" id="edit-permiss-crediario">
+                                <label for="edit-permiss-crediario">Permissão Crediário</label>
+                            </div>
+                            <button type="submit" class="auth-button" data-original-text="Salvar Alterações">Salvar Alterações</button>
+                            <p id="edit-client-message" class="message-area"></p>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script_gestao.js"></script> </body>
+</html>
