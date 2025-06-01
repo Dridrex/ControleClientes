@@ -1,183 +1,182 @@
-// script.js
+document.addEventListener('DOMContentLoaded', () => {
+    // --- VERIFICAÇÃO INICIAL ---
+    if (typeof supabase === 'undefined') {
+        alert('Erro crítico: SDK do Supabase não foi carregado. Verifique a conexão com a internet ou o console para erros de bloqueio.');
+        return;
+    }
 
-document.addEventListener('DOMContentLoaded', function() {
+    // --- CONFIGURAÇÃO DO SUPABASE ---
     const SUPABASE_URL = 'https://qomxmsehcaumeimyzrrw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvbXhtc2VoY2F1bWVpbXl6cnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NTk4MTMsImV4cCI6MjA2NDEzNTgxM30.Z3U7qLSbYIMKddsRM4UD-EmtKV01WNK2sBgf_gnYXUI';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Garante que Supabase está definido antes de tentar usá-lo
-    if (typeof supabase === 'undefined') {
-        console.error('ERRO CRÍTICO: Objeto Supabase não encontrado. Verifique se o SDK foi carregado corretamente.');
-        return; // Impede a execução do restante do script
+    // --- SELEÇÃO DOS ELEMENTOS DO DOM ---
+    const authView = document.getElementById('auth-view');
+    const dashboardView = document.getElementById('dashboard-view');
+    const loginSection = document.getElementById('login-section');
+    const registerSection = document.getElementById('register-section');
+
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const logoutButton = document.getElementById('logout-button');
+    
+    const loginMessage = document.getElementById('login-message');
+    const registerMessage = document.getElementById('register-message');
+    
+    const userGreeting = document.getElementById('user-greeting');
+
+    // --- FUNÇÕES AUXILIARES ---
+
+    /** Exibe uma mensagem na tela.
+     * @param {HTMLElement} element Onde exibir a mensagem.
+     * @param {string} text O texto da mensagem.
+     * @param {'error' | 'success'} type O tipo de mensagem.
+     */
+    function displayMessage(element, text, type = 'error') {
+        element.textContent = text;
+        element.className = `message-area ${type}`;
     }
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const registerPanel = document.getElementById('registerPanel');
-    const loginPanel = document.getElementById('loginPanel');
-    const dashboardPanel = document.getElementById('dashboardPanel');
-    const registerForm = document.getElementById('registerForm');
-    const loginForm = document.getElementById('loginForm');
-    const registerEmailInput = document.getElementById('registerEmail');
-    const registerPasswordInput = document.getElementById('registerPassword');
-    const confirmPasswordInput = document.getElementById('confirmPassword');
-    const registerMessageDisplay = document.getElementById('registerMessage');
-    const loginEmailInput = document.getElementById('loginEmail');
-    const loginPasswordInput = document.getElementById('loginPassword');
-    const loginMessageDisplay = document.getElementById('loginMessage');
-    const showLoginLink = document.getElementById('showLogin');
-    const showRegisterLink = document.getElementById('showRegister');
-    const logoutButton = document.getElementById('logoutButton');
-
-    function showRegisterPanel() {
-        registerPanel.classList.remove('hidden');
-        loginPanel.classList.add('hidden');
-        dashboardPanel.classList.add('hidden');
-        registerMessageDisplay.textContent = '';
-        loginMessageDisplay.textContent = '';
+    /** Ativa/desativa o estado de carregamento de um botão.
+     * @param {HTMLButtonElement} button O botão a ser modificado.
+     * @param {boolean} isLoading True para ativar o carregamento.
+     */
+    function toggleLoading(button, isLoading) {
+        button.disabled = isLoading;
+        button.innerHTML = isLoading ? '<span class="loader"></span> Carregando...' : button.dataset.originalText;
     }
 
-    function showLoginPanel() {
-        loginPanel.classList.remove('hidden');
-        registerPanel.classList.add('hidden');
-        dashboardPanel.classList.add('hidden');
-        registerMessageDisplay.textContent = '';
-        loginMessageDisplay.textContent = '';
+    // --- LÓGICA PRINCIPAL DA APLICAÇÃO ---
+
+    /** Busca o perfil do usuário na tabela `public.usuarios` e atualiza a UI. */
+    async function loadUserProfile(user) {
+        if (!user) return;
+        
+        try {
+            const { data: profile, error } = await _supabase
+                .from('usuarios') // O nome da sua tabela de perfis
+                .select('nome_usuario') // A coluna com o nome do usuário
+                .eq('id', user.id)
+                .single();
+
+            if (error) throw error;
+            
+            if (profile && profile.nome_usuario) {
+                userGreeting.textContent = `Olá, ${profile.nome_usuario}`;
+            } else {
+                userGreeting.textContent = `Olá, ${user.email.split('@')[0]}`;
+            }
+
+        } catch (error) {
+            console.error('Erro ao buscar perfil do usuário:', error.message);
+            // Se falhar, exibe o email como fallback
+            userGreeting.textContent = `Olá, ${user.email.split('@')[0]}`;
+        }
+    }
+    
+    /** Atualiza a visualização principal (autenticação ou dashboard). */
+    function updateView(view) {
+        if (view === 'dashboard') {
+            authView.classList.add('hidden');
+            dashboardView.classList.remove('hidden');
+        } else {
+            dashboardView.classList.add('hidden');
+            authView.classList.remove('hidden');
+        }
     }
 
-    function showDashboardPanel() {
-        dashboardPanel.classList.remove('hidden');
-        loginPanel.classList.add('hidden');
-        registerPanel.classList.add('hidden');
-    }
+    // --- MANIPULADORES DE EVENTOS (HANDLERS) ---
+    
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const button = loginForm.querySelector('button');
+        button.dataset.originalText = button.innerHTML;
 
-    if (showLoginLink) {
-        showLoginLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showLoginPanel();
-        });
-    }
+        toggleLoading(button, true);
+        displayMessage(loginMessage, '', 'success');
 
-    if (showRegisterLink) {
-        showRegisterLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showRegisterPanel();
-        });
-    }
+        try {
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            // O onAuthStateChange cuidará de atualizar a UI.
+        } catch (error) {
+            displayMessage(loginMessage, error.message, 'error');
+        } finally {
+            toggleLoading(button, false);
+        }
+    });
 
-    registerForm.addEventListener('submit', async function(event) {
-        event.preventDefault();
-
-        registerMessageDisplay.textContent = '';
-        registerMessageDisplay.className = 'message';
-
-        const email = registerEmailInput.value;
-        const password = registerPasswordInput.value;
-        const confirmPassword = confirmPasswordInput.value;
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        const button = registerForm.querySelector('button');
+        button.dataset.originalText = button.innerHTML;
 
         if (password !== confirmPassword) {
-            registerMessageDisplay.textContent = 'As senhas não coincidem!';
-            registerMessageDisplay.className = 'message error';
+            displayMessage(registerMessage, 'As senhas não coincidem.', 'error');
             return;
         }
 
-        if (password.length < 6) {
-            registerMessageDisplay.textContent = 'A senha deve ter no mínimo 6 caracteres.';
-            registerMessageDisplay.className = 'message error';
-            return;
-        }
-
+        toggleLoading(button, true);
+        displayMessage(registerMessage, '', 'success');
+        
         try {
-            const { data, error } = await supabase.auth.signUp({
-                email: email,
-                password: password,
-            });
-
-            if (error) {
-                registerMessageDisplay.textContent = `Erro no registro: ${error.message}`;
-                registerMessageDisplay.className = 'message error';
-            } else {
-                if (data.user && data.session) {
-                    registerMessageDisplay.textContent = 'Registro bem-sucedido! Você será redirecionado.';
-                    registerMessageDisplay.className = 'message success';
-                    setTimeout(showDashboardPanel, 1500);
-                } else if (data.session === null && data.user === null) {
-                    registerMessageDisplay.textContent = 'Registro efetuado! Um e-mail de confirmação foi enviado para você. Por favor, verifique sua caixa de entrada (e spam).';
-                    registerMessageDisplay.className = 'message success';
-                } else {
-                    registerMessageDisplay.textContent = 'Registro efetuado, mas algo inesperado aconteceu. Por favor, verifique sua caixa de entrada.';
-                    registerMessageDisplay.className = 'message success';
-                }
-
-                registerEmailInput.value = '';
-                registerPasswordInput.value = '';
-                confirmPasswordInput.value = '';
-            }
+            const { data, error } = await _supabase.auth.signUp({ email, password });
+            if (error) throw error;
+            displayMessage(registerMessage, 'Registro realizado! Verifique seu e-mail para confirmação (se aplicável).', 'success');
+            registerForm.reset();
         } catch (error) {
-            registerMessageDisplay.textContent = `Ocorreu um erro inesperado: ${error.message}`;
-            registerMessageDisplay.className = 'message error';
+            displayMessage(registerMessage, error.message, 'error');
+        } finally {
+            toggleLoading(button, false);
         }
     });
 
-    loginForm.addEventListener('submit', async function(event) {
-        event.preventDefault();
+    logoutButton.addEventListener('click', async () => {
+        const button = logoutButton;
+        button.dataset.originalText = button.innerHTML;
+        toggleLoading(button, true);
 
-        loginMessageDisplay.textContent = '';
-        loginMessageDisplay.className = 'message';
-
-        const email = loginEmailInput.value;
-        const password = loginPasswordInput.value;
-
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: email,
-                password: password,
-            });
-
-            if (error) {
-                loginMessageDisplay.textContent = `Erro no login: ${error.message}`;
-                loginMessageDisplay.className = 'message error';
-            } else {
-                loginMessageDisplay.textContent = 'Login bem-sucedido! Bem-vindo!';
-                loginMessageDisplay.className = 'message success';
-                loginEmailInput.value = '';
-                loginPasswordInput.value = '';
-                setTimeout(showDashboardPanel, 1500);
-            }
-        } catch (error) {
-            loginMessageDisplay.textContent = `Ocorreu um erro inesperado: ${error.message}`;
-            loginMessageDisplay.className = 'message error';
-        }
+        await _supabase.auth.signOut();
+        
+        toggleLoading(button, false);
+        // O onAuthStateChange cuidará de atualizar a UI.
+    });
+    
+    // Links para trocar entre formulários de login e registro
+    document.getElementById('show-register-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        loginSection.classList.add('hidden');
+        registerSection.classList.remove('hidden');
     });
 
-    if (logoutButton) {
-        logoutButton.addEventListener('click', async function() {
-            try {
-                const { error } = await supabase.auth.signOut();
-                if (error) {
-                    console.error('Erro ao fazer logout:', error.message);
-                    alert('Erro ao fazer logout: ' + error.message);
-                } else {
-                    console.log('Logout bem-sucedido.');
-                    showLoginPanel();
-                }
-            } catch (error) {
-                console.error('Erro inesperado durante o logout:', error.message);
-                alert('Erro inesperado durante o logout: ' + error.message);
+    document.getElementById('show-login-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        registerSection.classList.add('hidden');
+        loginSection.classList.remove('hidden');
+    });
+
+    // --- INICIALIZAÇÃO E GERENCIAMENTO DE SESSÃO ---
+
+    /** Ponto de entrada: verifica a sessão e ouve mudanças de estado. */
+    function initialize() {
+        // Ouve todas as mudanças de estado da autenticação (login, logout)
+        _supabase.auth.onAuthStateChange((event, session) => {
+            if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+                // Usuário está logado
+                loadUserProfile(session.user);
+                updateView('dashboard');
+            } else if (event === 'SIGNED_OUT') {
+                // Usuário deslogou
+                updateView('auth');
             }
         });
     }
 
-    async function checkUserSession() {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-            console.error('Erro ao obter sessão:', error.message);
-        }
-        if (session) {
-            showDashboardPanel();
-        } else {
-            showLoginPanel();
-        }
-    }
-
-    checkUserSession();
+    // Inicia a aplicação
+    initialize();
 });
