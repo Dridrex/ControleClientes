@@ -26,6 +26,8 @@
                     </div>
                 </div>
 
+                <button id="open-reports-modal-button" class="auth-button">Ver Relatórios</button>
+
                 <div id="edit-client-modal" class="modal hidden">
                     <div class="modal-content">
                         <span id="close-modal-button" class="close-modal-button">&times;</span>
@@ -55,6 +57,21 @@
                             <button type="submit" class="auth-button" data-original-text="Salvar Alterações">Salvar Alterações</button>
                             <p id="edit-client-message" class="message-area"></p>
                         </form>
+                    </div>
+                </div>
+
+                <div id="reports-modal" class="modal hidden">
+                    <div class="modal-content">
+                        <span id="close-reports-modal-button" class="close-modal-button">&times;</span>
+                        <h4>Relatórios Disponíveis</h4>
+                        <div class="report-options">
+                            <button id="generate-debit-report-button" class="auth-button report-button" data-original-text="Listar Usuários com Débitos">Listar Usuários com Débitos</button>
+                            <button id="generate-sales-report-button" class="auth-button report-button" data-original-text="Vendas por Cliente">Vendas por Cliente</button>
+                        </div>
+                        <div id="report-results-container">
+                            <!-- Os resultados do relatório serão inseridos aqui -->
+                        </div>
+                        <p id="report-message-area" class="message-area"></p>
                     </div>
                 </div>
             </section>
