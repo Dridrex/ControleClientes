@@ -1,13 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
-    let currentUserIsAdmin = false; // Global variable for admin status
+    let currentUserFilialId = null; 
+    let currentUserIsAdmin = false;
     console.log('Gestao Script Loaded.');
 
     if (typeof supabase === 'undefined') {
         alert('Erro crítico: SDK do Supabase não foi carregado.');
-        window.location.href = 'index.html'; // Volta para o login se Supabase não carregar
+        window.location.href = 'index.html';
         return;
     }
-
     const SUPABASE_URL = 'https://qomxmsehcaumeimyzrrw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvbXhtc2VoY2F1bWVpbXl6cnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NTk4MTMsImV4cCI6MjA2NDEzNTgxM30.Z3U7qLSbYIMKddsRM4UD-EmtKV01WNK2sBgf_gnYXUI';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -17,43 +17,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutButton = document.getElementById('logout-button');
     const clientList = document.getElementById('client-list');
     const clientListMessage = document.getElementById('client-list-message');
+    const registerClientButton = document.getElementById('register-client-button');
+    const registerClientModal = document.getElementById('register-client-modal');
+    const registerClientForm = document.getElementById('register-client-form');
+    const closeRegisterModalButton = document.getElementById('close-register-modal-button');
+    const registerClientMessage = document.getElementById('register-client-message');
+    const registerAdmCheckbox = document.getElementById('register-adm');
     const editClientModal = document.getElementById('edit-client-modal');
     const editClientForm = document.getElementById('edit-client-form');
     const closeModalButton = document.getElementById('close-modal-button');
-    const editClientId = document.getElementById('edit-client-id');
-    const editNomeUsuario = document.getElementById('edit-nome-usuario');
-    const editEmail = document.getElementById('edit-email');
-    const editAdm = document.getElementById('edit-adm');
-    const editClient = document.getElementById('edit-client'); // Checkbox
-    const editPermissCrediario = document.getElementById('edit-permiss-crediario');
-    const editClientMessage = document.getElementById('edit-client-message');
 
-    // Novos seletores adicionados
-    const registerClientButton = document.getElementById('register-client-button');
-    const valuesClientModal = document.getElementById('values-client-modal'); // Already defined, good.
-    const closeValuesModalButton = document.getElementById('close-values-modal-button'); // Already defined, good.
-    const valuesClientMessage = document.getElementById('values-client-message'); // Already defined, good.
-    // Spans for values will be fetched inside openValuesModal
-
-    // Selectors for Register Client Modal
-    const registerClientModal = document.getElementById('register-client-modal');
-    const closeRegisterModalButton = document.getElementById('close-register-modal-button');
-    const registerClientForm = document.getElementById('register-client-form');
-    const registerNomeUsuario = document.getElementById('register-nome-usuario');
-    const registerEmail = document.getElementById('register-email');
-    const registerSenha = document.getElementById('register-senha');
-    const registerAdm = document.getElementById('register-adm');
-    const registerPermissCrediario = document.getElementById('register-permiss-crediario');
-    const registerClientMessage = document.getElementById('register-client-message');
-
-
-    function displayMessage(element, text, type = 'error') { // Pode ser movida para um utils.js
+    function displayMessage(element, text, type = 'error') {
         if (!element) return;
         element.textContent = text;
         element.className = `message-area ${type}`;
     }
-    
-    function toggleLoading(button, isLoading) { // Pode ser movida para um utils.js
+
+    function toggleLoading(button, isLoading) {
         if (!button) return;
         const originalText = button.dataset.originalText || button.textContent;
         if (isLoading) {
@@ -61,504 +41,218 @@ document.addEventListener('DOMContentLoaded', () => {
             button.innerHTML = '<span class="loader"></span> Carregando...';
             button.disabled = true;
         } else {
-            button.innerHTML = button.dataset.originalText;
+            button.innerHTML = originalText;
             button.disabled = false;
         }
     }
 
     async function loadUserProfile(user) {
         if (!user || !userGreeting) {
-            if(userGreeting && user && user.email) userGreeting.textContent = `Olá, ${user.email.split('@')[0]}`;
-            else if(userGreeting) userGreeting.textContent = 'Olá!';
-            return;
+            if (userGreeting) userGreeting.textContent = 'Olá!';
+            return { isAdmin: false, filialId: null };
         }
         try {
-            const { data: profile, error, status } = await _supabase
-                .from('usuarios')
-                .select('nome_usuario, adm') // Fetch adm status
-                .eq('id', user.id)
-                .single();
-            if (error && status !== 406) throw error;
-
+            const { data: profile, error } = await _supabase.from('usuarios').select('nome_usuario, filial_id, adm').eq('id', user.id).single();
+            if (error && error.code !== 'PGRST116') throw error;
+            
             userGreeting.textContent = (profile && profile.nome_usuario) ? `Olá, ${profile.nome_usuario}` : `Olá, ${user.email.split('@')[0]}`;
-            currentUserIsAdmin = profile ? profile.adm : false;
-            // console.log("User admin status:", currentUserIsAdmin); // For debugging. Removed redundant fetchBranchClients.
+            
+            const isAdmin = profile ? profile.adm : false;
+            const filialId = profile ? profile.filial_id : null;
+
+            if (!filialId) {
+                console.error("Usuário logado não possui filial associada!");
+                displayMessage(clientListMessage, 'Seu usuário não está vinculado a uma filial. A gestão de clientes está desabilitada.', 'error');
+            }
+            
+            return { isAdmin, filialId };
+
         } catch (error) {
-            console.error('Erro ao buscar perfil do usuário:', error.message);
+            console.error('Erro ao buscar perfil:', error.message);
             userGreeting.textContent = `Olá, ${user.email.split('@')[0]}`;
-            currentUserIsAdmin = false; // Default to false on error
-            // Removed redundant fetchBranchClients. fetchBranchClients is called in initializePage after this.
+            return { isAdmin: false, filialId: null };
         }
     }
 
-    async function fetchBranchClients() {
-        if (!clientListMessage || !clientList) return;
+    async function fetchBranchClients(isAdmin) {
+        if (!clientListMessage || !clientList || !currentUserFilialId) return;
         displayMessage(clientListMessage, 'Carregando clientes...', 'success');
         try {
-            const { data: clients, error } = await _supabase
-                .from('usuarios')
-                .select('id, nome_usuario, email, adm, client, permiss_crediario')
-                .order('nome_usuario', { ascending: true });
+            const { data: clients, error } = await _supabase.from('usuarios').select('*').order('nome_usuario', { ascending: true });
             if (error) throw error;
-            displayMessage(clientListMessage, clients.length === 0 ? 'Nenhum cliente nesta filial.' : '', 'success');
-            renderClientList(clients);
+            displayMessage(clientListMessage, clients.length === 0 ? 'Nenhum cliente cadastrado nesta filial.' : '', 'success');
+            renderClientList(clients, isAdmin);
         } catch (error) {
             console.error('Erro ao buscar clientes:', error.message);
-            displayMessage(clientListMessage, `Erro ao buscar clientes: ${error.message}`, 'error');
+            displayMessage(clientListMessage, `Erro: ${error.message}`, 'error');
         }
     }
 
-    function renderClientList(clientsData) {
+    function renderClientList(clientsData, isAdmin) {
         if (!clientList) return;
         clientList.innerHTML = '';
         if (!clientsData || clientsData.length === 0) return;
-        clientsData.forEach(clientProfile => {
+
+        if (registerClientButton) {
+            registerClientButton.style.display = isAdmin ? 'inline-block' : 'none';
+        }
+
+        clientsData.forEach(client => {
             const listItem = document.createElement('li');
+            const editButtonHtml = isAdmin ? `<button class="edit-client-button" data-id="${client.id}">Editar</button>` : '';
+            
             listItem.innerHTML = `
                 <div class="client-info">
-                    <strong>${clientProfile.nome_usuario || 'Nome não informado'}</strong>
-                    <span>${clientProfile.email || 'Email não disponível'}</span>
+                    <strong>${client.nome_usuario || 'Nome não informado'}</strong>
+                    <span>${client.email || 'Cliente sem login'}</span>
                 </div>
                 <div class="client-actions">
-                    ${currentUserIsAdmin ? `<button class="edit-client-button" data-id="${clientProfile.id}">Editar</button>` : ''}
-                    <button class="values-client-button" data-id="${clientProfile.id}">Valores</button>
+                    ${editButtonHtml}
                 </div>
             `;
+            
+            if (isAdmin) {
+                listItem.querySelector('.edit-client-button').addEventListener('click', () => openEditModal(client));
+            }
+
             clientList.appendChild(listItem);
-
-            // Event listener for edit button (only add if admin)
-            if (currentUserIsAdmin) {
-                const editButton = listItem.querySelector('.edit-client-button');
-                if (editButton) {
-                    editButton.addEventListener('click', () => {
-                        openEditModal(clientProfile);
-                    });
-                }
-            }
-
-            const valuesButton = listItem.querySelector('.values-client-button');
-            if (valuesButton) {
-                valuesButton.addEventListener('click', () => {
-                    openValuesModal(clientProfile.id);
-                });
-            }
         });
     }
 
-    // Função para buscar valor da conta do cliente (simulado)
-    async function fetchClientAccountValue(clientId) {
-        console.log(`Fetching account value for client: ${clientId}`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        // Simular erro para um ID específico para teste
-        if (clientId === 'error_test_account') {
-            throw new Error("Simulated error fetching account value.");
-        }
-        return 1234.50; // Valor dummy
+    function openEditModal(client) {
+        if (!editClientModal) return;
+        displayMessage(document.getElementById('edit-client-message'), '', 'success');
+        document.getElementById('edit-client-id').value = client.id;
+        document.getElementById('edit-nome-usuario').value = client.nome_usuario || '';
+        document.getElementById('edit-email').value = client.email || '';
+        document.getElementById('edit-adm').checked = client.adm;
+        document.getElementById('edit-client').checked = client.client;
+        document.getElementById('edit-permiss-crediario').checked = client.permiss_crediario;
+        editClientModal.classList.remove('hidden');
     }
-
-    // Função para buscar total de compras do cliente (simulado)
-    async function fetchClientTotalPurchases(clientId) {
-        console.log(`Fetching total purchases for client: ${clientId}`);
-        await new Promise(resolve => setTimeout(resolve, 700));
-        if (clientId === 'error_test') { // Self-correction: specific error case
-            throw new Error("Simulated error fetching purchases.");
-        }
-        return 5678.90; // Valor dummy
-    }
-
-    // Função para abrir e popular o modal de valores do cliente
-    async function openValuesModal(clientId) {
-        if (!valuesClientModal || !valuesClientMessage) {
-            console.error('Modal de valores ou área de mensagem não encontrados.');
-            return;
-        }
-
-        const totalAccountValueSpan = document.getElementById('total-account-value');
-        const totalPurchasesValueSpan = document.getElementById('total-purchases-value');
-
-        if (!totalAccountValueSpan || !totalPurchasesValueSpan) {
-            console.error('Spans de valor no modal não encontrados.');
-            return;
-        }
-
-        // Resetar estado do modal
-        valuesClientMessage.textContent = '';
-        valuesClientMessage.className = 'message-area'; // Reset classes
-        totalAccountValueSpan.textContent = 'Carregando...';
-        totalPurchasesValueSpan.textContent = 'Carregando...';
-        valuesClientModal.classList.remove('hidden');
-
-        try {
-            const results = await Promise.allSettled([
-                fetchClientAccountValue(clientId),
-                fetchClientTotalPurchases(clientId)
-            ]);
-
-            const accountResult = results[0];
-            const purchasesResult = results[1];
-            let errorMessages = [];
-
-            if (accountResult.status === 'fulfilled') {
-                totalAccountValueSpan.textContent = `R$ ${accountResult.value.toFixed(2)}`;
-            } else {
-                totalAccountValueSpan.textContent = 'Erro';
-                errorMessages.push(`Conta: ${accountResult.reason.message}`);
-                console.error('Erro ao buscar valor da conta:', accountResult.reason);
-            }
-
-            if (purchasesResult.status === 'fulfilled') {
-                totalPurchasesValueSpan.textContent = `R$ ${purchasesResult.value.toFixed(2)}`;
-            } else {
-                totalPurchasesValueSpan.textContent = 'Erro';
-                errorMessages.push(`Compras: ${purchasesResult.reason.message}`);
-                console.error('Erro ao buscar total de compras:', purchasesResult.reason);
-            }
-
-            if (errorMessages.length > 0) {
-                displayMessage(valuesClientMessage, errorMessages.join('; '), 'error');
-            }
-
-        } catch (error) { // Este catch é para erros inesperados no Promise.allSettled ou setup
-            console.error('Erro inesperado ao abrir modal de valores:', error);
-            displayMessage(valuesClientMessage, 'Ocorreu um erro inesperado. Tente novamente.', 'error');
-            totalAccountValueSpan.textContent = 'Erro';
-            totalPurchasesValueSpan.textContent = 'Erro';
-        }
-    }
-
-    function openEditModal(clientProfileData) {
-        if (!editClientModal || !editClientId || !editNomeUsuario || !editEmail || !editAdm || !editClient || !editPermissCrediario || !editClientMessage) {
-            console.error('Um ou mais elementos do modal de edição não foram encontrados.');
-            return;
-        }
-
-        editClientId.value = clientProfileData.id;
-        editNomeUsuario.value = clientProfileData.nome_usuario || '';
-        editEmail.value = clientProfileData.email || '';
-        editAdm.checked = clientProfileData.adm;
-        editClient.checked = clientProfileData.client;
-        editPermissCrediario.checked = clientProfileData.permiss_crediario;
-
-        if (editClientMessage) editClientMessage.textContent = '';
-        if (editClientModal) editClientModal.classList.remove('hidden');
-    }
-
-    if (logoutButton) {
-        logoutButton.addEventListener('click', async () => {
-            toggleLoading(logoutButton, true);
-            await _supabase.auth.signOut();
-            // O onAuthStateChange ou a verificação de sessão no carregamento da página de login
-            // cuidará do redirecionamento. Mas podemos forçar aqui também.
-            window.location.href = 'index.html';
-        });
-    }
-
-    async function registerNewUser(nome_usuario, email, password, adm, permiss_crediario) {
-        if (!registerClientMessage || !registerClientForm || !registerClientModal) {
-            console.error("Elementos do modal de registro não encontrados para registerNewUser.");
-            return; // Should be caught by calling function's try/catch/finally for toggleLoading
-        }
-
-        // The 'adm' parameter from handleRegisterClientSubmit dictates the logic path.
-        if (adm) {
-            // Admin Registration Path
-            displayMessage(registerClientMessage, 'Registrando novo administrador...', 'success');
-            try {
-                const { data: authData, error: authError } = await _supabase.auth.signUp({ email, password });
-
-                if (authError) {
-                    displayMessage(registerClientMessage, `Erro ao criar autenticação para admin: ${authError.message}`, 'error');
-                    console.error('Erro Supabase SignUp (Admin):', authError);
-                    return;
-                }
-                if (!authData.user) {
-                    displayMessage(registerClientMessage, 'Erro: Administrador não foi criado na autenticação.', 'error');
-                    console.error('Supabase SignUp (Admin) retornou sem erro, mas sem usuário:', authData);
-                    return;
-                }
-
-                const userId = authData.user.id;
-                const { error: insertError } = await _supabase
-                    .from('usuarios')
-                    .insert([{
-                        id: userId,
-                        nome_usuario,
-                        email,
-                        adm: true,
-                        client: false, // Admins are not end-customer type clients
-                        permiss_crediario
-                    }]);
-
-                if (insertError) {
-                    displayMessage(registerClientMessage, `Erro ao salvar dados do administrador: ${insertError.message}`, 'error');
-                    console.error('Erro ao inserir admin em usuarios:', insertError, 'Auth User ID:', userId);
-                    // Consider logic to delete authData.user if this part fails.
-                    return;
-                }
-
-                displayMessage(registerClientMessage, 'Administrador registrado com sucesso!', 'success');
-            } catch (error) {
-                console.error('Erro inesperado durante o registro do administrador:', error);
-                displayMessage(registerClientMessage, `Erro inesperado (admin): ${error.message}`, 'error');
-                return; // Ensure flow stops here on unexpected error
-            }
-        } else {
-            // Client (End-Customer) Registration Path
-            displayMessage(registerClientMessage, 'Registrando novo cliente...', 'success');
-            try {
-                const { data: insertedClient, error: insertError } = await _supabase
-                    .from('usuarios')
-                    .insert([{
-                        nome_usuario,
-                        email: null, // Email is explicitly null for non-admin clients
-                        adm: false,
-                        client: true, // This is an end-customer type client
-                        permiss_crediario
-                    }])
-                    .select();
-
-                if (insertError) {
-                    displayMessage(registerClientMessage, `Erro ao salvar dados do cliente: ${insertError.message}`, 'error');
-                    console.error('Erro ao inserir cliente em usuarios:', insertError);
-                    return;
-                }
-
-                console.log('Cliente registrado (sem auth):', insertedClient);
-                displayMessage(registerClientMessage, 'Cliente registrado com sucesso!', 'success');
-            } catch (error) {
-                console.error('Erro inesperado durante o registro do cliente:', error);
-                displayMessage(registerClientMessage, `Erro inesperado (cliente): ${error.message}`, 'error');
-                return; // Ensure flow stops here on unexpected error
-            }
-        }
-
-        // Common success actions for both paths
-        await fetchBranchClients(); // Refresh the client list
-        setTimeout(() => {
-            if (registerClientModal) registerClientModal.classList.add('hidden');
-        }, 1500);
-        if (registerClientForm) registerClientForm.reset();
-        // Note: toggleLoading is handled by the calling function handleRegisterClientSubmit's finally block.
-    }
-
-    async function handleRegisterClientSubmit(event) {
-        event.preventDefault();
-        if (!registerClientForm || !registerNomeUsuario || !registerEmail || !registerSenha || !registerAdm || !registerPermissCrediario || !registerClientMessage) {
-            console.error("Elementos do formulário de registro não encontrados.");
-            return;
-        }
-
-        const submitButton = registerClientForm.querySelector('button[type="submit"]');
-        // Ensure original text is set for toggleLoading
-        if (submitButton && !submitButton.dataset.originalText) {
-            submitButton.dataset.originalText = submitButton.textContent;
-        }
-
-        toggleLoading(submitButton, true);
-        displayMessage(registerClientMessage, '', 'success'); // Clear previous messages
-
-        const nome_usuario = registerNomeUsuario.value.trim();
-        const email = registerEmail.value.trim();
-        const password = registerSenha.value; // No trim for password
-        const adm = registerAdm.checked;
-        const permiss_crediario = registerPermissCrediario.checked;
-
-        // Client-side Validation
-        if (!nome_usuario) { // Nome is always required
-            displayMessage(registerClientMessage, "Nome de usuário é obrigatório.", 'error');
-            toggleLoading(submitButton, false);
-            return;
-        }
-
-        if (adm) { // Email and password only required if registering an admin
-            if (!email || !password) {
-                displayMessage(registerClientMessage, "Email e senha são obrigatórios para cadastrar um administrador.", 'error');
-                toggleLoading(submitButton, false);
-                return;
-            }
-            if (!email.includes('@') || !email.includes('.')) {
-                displayMessage(registerClientMessage, "Formato de email inválido para administrador.", 'error');
-                toggleLoading(submitButton, false);
-                return;
-            }
-            if (password.length < 6) { // Supabase default minimum password length
-                 displayMessage(registerClientMessage, "A senha para administrador deve ter pelo menos 6 caracteres.", 'error');
-                toggleLoading(submitButton, false);
-                return;
-            }
-        } else {
-            // If not registering an admin, email and password might not be sent or used by Supabase Auth if policies allow
-            // For this implementation, we assume if not admin, no Supabase auth user is created, so email/pass are not used.
-            // This part of registerNewUser function will need adjustment if non-admins also create auth.users
-        }
-
-
-        try {
-            await registerNewUser(nome_usuario, email, password, adm, permiss_crediario);
-        } catch (error) { // Should be caught by registerNewUser, but as a fallback
-            console.error("Erro não capturado por registerNewUser:", error);
-            displayMessage(registerClientMessage, `Erro crítico no processo de registro: ${error.message}`, 'error');
-        } finally {
-            toggleLoading(submitButton, false);
-        }
-    }
-
-    // --- PROTEÇÃO DA PÁGINA E CARREGAMENTO INICIAL DE DADOS ---
 
     function updateAdminFieldsVisibility() {
-        if (!registerAdm || !registerEmail || !registerSenha) { // Ensure elements exist
-            console.warn("Campos de admin ou checkbox não encontrados para updateAdminFieldsVisibility");
-            return;
-        }
         const adminFields = document.querySelectorAll('#register-client-form .admin-only-field');
-
-        if (registerAdm.checked) {
+        const emailInput = document.getElementById('register-email');
+        const passwordInput = document.getElementById('register-senha');
+        
+        if (registerAdmCheckbox && registerAdmCheckbox.checked) {
             adminFields.forEach(field => field.style.display = 'block');
-            registerEmail.required = true;
-            registerSenha.required = true;
+            emailInput.required = true;
+            passwordInput.required = true;
         } else {
             adminFields.forEach(field => field.style.display = 'none');
-            registerEmail.value = ''; // Clear values when hiding
-            registerSenha.value = '';
-            registerEmail.required = false;
-            registerSenha.required = false;
+            emailInput.required = false;
+            passwordInput.required = false;
         }
+    }
+
+    if (logoutButton) logoutButton.addEventListener('click', async () => {
+        toggleLoading(logoutButton, true);
+        await _supabase.auth.signOut();
+        window.location.href = 'index.html';
+    });
+
+    if (registerClientButton) registerClientButton.addEventListener('click', () => {
+        if (!currentUserIsAdmin) {
+            alert('Apenas administradores podem cadastrar novos clientes.');
+            return;
+        }
+        registerClientForm.reset();
+        updateAdminFieldsVisibility();
+        displayMessage(registerClientMessage, '', 'success');
+        registerClientModal.classList.remove('hidden');
+    });
+
+    if (closeRegisterModalButton) closeRegisterModalButton.addEventListener('click', () => registerClientModal.classList.add('hidden'));
+    if (closeModalButton) closeModalButton.addEventListener('click', () => editClientModal.classList.add('hidden'));
+
+    if (registerAdmCheckbox) registerAdmCheckbox.addEventListener('change', updateAdminFieldsVisibility);
+
+    if (registerClientForm) {
+        registerClientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = registerClientForm.querySelector('button[type="submit"]');
+            toggleLoading(button, true);
+
+            if (!currentUserFilialId) {
+                displayMessage(registerClientMessage, 'Erro: Filial do administrador não encontrada. Não é possível criar cliente.', 'error');
+                toggleLoading(button, false);
+                return;
+            }
+
+            try {
+                const formData = {
+                    nome_usuario: document.getElementById('register-nome-usuario').value,
+                    email: document.getElementById('register-email').value,
+                    password: document.getElementById('register-senha').value,
+                    adm: registerAdmCheckbox.checked,
+                    permiss_crediario: document.getElementById('register-permiss-crediario').checked,
+                    filial_id: currentUserFilialId,
+                    client: !registerAdmCheckbox.checked
+                };
+
+                const { data, error } = await _supabase.functions.invoke('criar-novo-usuario', { body: formData });
+
+                if (error) throw new Error(error.message);
+                const result = data.error ? new Error(data.error) : data;
+                if (result instanceof Error) throw result;
+
+                displayMessage(registerClientMessage, "Usuário/Cliente cadastrado com sucesso!", "success");
+                await fetchBranchClients(currentUserIsAdmin);
+                setTimeout(() => registerClientModal.classList.add('hidden'), 1500);
+
+            } catch (error) {
+                console.error("Erro ao cadastrar cliente:", error);
+                displayMessage(registerClientMessage, error.message, 'error');
+            } finally {
+                toggleLoading(button, false);
+            }
+        });
+    }
+
+    if (editClientForm) {
+        editClientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = editClientForm.querySelector('button[type="submit"]');
+            toggleLoading(button, true);
+            
+            const clientId = document.getElementById('edit-client-id').value;
+            const updatedData = {
+                nome_usuario: document.getElementById('edit-nome-usuario').value,
+                adm: document.getElementById('edit-adm').checked,
+                client: document.getElementById('edit-client').checked,
+                permiss_crediario: document.getElementById('edit-permiss-crediario').checked,
+            };
+
+            try {
+                const { error } = await _supabase.from('usuarios').update(updatedData).eq('id', clientId);
+                if (error) throw error;
+                displayMessage(document.getElementById('edit-client-message'), 'Cliente atualizado com sucesso!', 'success');
+                await fetchBranchClients(currentUserIsAdmin);
+                setTimeout(() => editClientModal.classList.add('hidden'), 1500);
+            } catch (error) {
+                console.error("Erro ao editar cliente:", error);
+                displayMessage(document.getElementById('edit-client-message'), error.message, 'error');
+            } finally {
+                toggleLoading(button, false);
+            }
+        });
     }
 
     async function initializePage() {
-        // Event listener para o botão "Cadastrar Cliente"
-        if (registerClientButton && registerClientModal && registerClientForm && registerClientMessage && registerAdm) {
-            registerClientButton.addEventListener('click', () => {
-                registerClientModal.classList.remove('hidden');
-                registerClientMessage.textContent = '';
-                registerClientMessage.className = 'message-area';
-                registerClientForm.reset();
-                registerAdm.checked = false; // Explicitly uncheck admin for new form
-                updateAdminFieldsVisibility(); // Update visibility based on unchecked admin
-            });
-        }
-
-        // Event listener for the Admin checkbox in registration form
-        if (registerAdm) {
-            registerAdm.addEventListener('change', updateAdminFieldsVisibility);
-        }
-
-        // Close logic for Register Client Modal
-        if (closeRegisterModalButton && registerClientModal) {
-            closeRegisterModalButton.addEventListener('click', () => {
-                registerClientModal.classList.add('hidden');
-            });
-        }
-        if (registerClientModal) {
-            registerClientModal.addEventListener('click', (event) => {
-                if (event.target === registerClientModal) {
-                    registerClientModal.classList.add('hidden');
-                }
-            });
-        }
-
-        // Event listener for Register Client Form submission
-        if (registerClientForm) {
-            registerClientForm.addEventListener('submit', handleRegisterClientSubmit);
-        }
-
-        // Lógica básica para o modal "Valores"
-        if (closeValuesModalButton && valuesClientModal) {
-            closeValuesModalButton.addEventListener('click', () => {
-                valuesClientModal.classList.add('hidden');
-            });
-        }
-
-        if (valuesClientModal) {
-            valuesClientModal.addEventListener('click', (event) => {
-                if (event.target === valuesClientModal) {
-                    valuesClientModal.classList.add('hidden');
-                }
-            });
-            // Limpar mensagem ao abrir (ou poderia ser feito na função de abrir o modal)
-            // Por enquanto, vamos garantir que esteja limpo se for reaberto antes da implementação completa.
-            // Esta linha será mais útil dentro de uma função `openValuesModal`
-            // valuesClientMessage.textContent = '';
-        }
-
-
-        const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
-
-        if (sessionError || !session) {
-            console.log('Nenhuma sessão ativa ou erro ao buscar sessão. Redirecionando para login.');
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) {
             window.location.href = 'index.html';
             return;
         }
 
-        console.log('Sessão ativa. Carregando dados do dashboard.');
-        await loadUserProfile(session.user);
-        await fetchBranchClients();
-        // Adicionar aqui a lógica para os botões de editar cliente
-
-        // Event listener para o botão de fechar o modal
-        if (closeModalButton && editClientModal) {
-            closeModalButton.addEventListener('click', () => {
-                editClientModal.classList.add('hidden');
-            });
-        }
-
-        // Event listener para fechar o modal clicando no fundo
-        if (editClientModal) {
-            editClientModal.addEventListener('click', (event) => {
-                if (event.target === editClientModal) {
-                    editClientModal.classList.add('hidden');
-                }
-            });
-        }
-
-        // Event listener para o submit do formulário de edição
-        if (editClientForm) {
-            editClientForm.addEventListener('submit', async (event) => {
-                event.preventDefault();
-
-                const clientId = editClientId.value;
-                const novoNome = editNomeUsuario.value;
-                const novoAdm = editAdm.checked;
-                const novoClient = editClient.checked;
-                const novoPermissCrediario = editPermissCrediario.checked;
-
-                const submitButton = editClientForm.querySelector('button[type="submit"]');
-                // Garantir que toggleLoading tenha o texto original ao carregar
-                const originalButtonText = submitButton.dataset.originalText || submitButton.textContent;
-                if (!submitButton.dataset.originalText) {
-                    submitButton.dataset.originalText = originalButtonText;
-                }
-
-                toggleLoading(submitButton, true);
-                displayMessage(editClientMessage, '', 'success'); // Limpa mensagens anteriores
-
-                try {
-                    const { error } = await _supabase
-                        .from('usuarios')
-                        .update({
-                            nome_usuario: novoNome,
-                            adm: novoAdm,
-                            client: novoClient,
-                            permiss_crediario: novoPermissCrediario
-                        })
-                        .eq('id', clientId);
-
-                    if (error) throw error;
-
-                    displayMessage(editClientMessage, 'Dados do cliente atualizados com sucesso!', 'success');
-                    await fetchBranchClients(); // Atualiza a lista na página
-
-                    setTimeout(() => {
-                        if (editClientModal) editClientModal.classList.add('hidden');
-                    }, 1500);
-
-                } catch (error) {
-                    console.error('Erro ao atualizar cliente:', error.message);
-                    displayMessage(editClientMessage, `Erro ao atualizar cliente: ${error.message}`, 'error');
-                } finally {
-                    toggleLoading(submitButton, false);
-                }
-            });
+        const profileData = await loadUserProfile(session.user);
+        currentUserIsAdmin = profileData.isAdmin;
+        currentUserFilialId = profileData.filialId;
+        
+        if (currentUserFilialId) {
+            await fetchBranchClients(currentUserIsAdmin);
         }
     }
 

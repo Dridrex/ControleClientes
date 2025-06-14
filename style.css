@@ -312,3 +312,8 @@ body {
 #register-client-modal .message-area {
     margin-top: 1rem; /* Adjusted from generic 1.5rem */
 }
+
+/* Adicione esta classe ao seu style.css */
+.admin-only-field {
+    display: none;
+}
