@@ -266,3 +266,44 @@ body {
 
 /* Ensure close button is styled if not covered by existing .close-modal-button */
 /* #close-values-modal-button is already classed with .close-modal-button, so it should inherit styles. */
+
+/* Styles for Register Client Modal */
+/* Base .modal and .hidden styles are already defined and provide general modal behavior. */
+/* Base .modal-content styles are already defined and should apply.
+   Default .modal-content is max-width: 500px, padding: 2rem. This is suitable. */
+
+/* Specific adjustments for form elements within #register-client-modal if needed,
+   mostly to confirm consistency or apply minor tweaks. */
+
+/* h4 style is covered by generic .modal-content h4 */
+/* #register-client-modal .modal-content h4 is already styled by .modal-content h4 */
+
+/* Input group styling - generic is 1.5rem margin-bottom. Task asks for 1rem. */
+#register-client-modal .input-group {
+    margin-bottom: 1rem; /* Adjusted from generic 1.5rem */
+}
+
+/* Label styling is covered by generic .input-group label */
+/* Input[type="text/email/password"] styling is covered by generic .input-group input */
+/* Checkbox group styling - generic .checkbox-group has display:flex, align-items:center, gap:0.5rem (8px). */
+/* This means margin-right for checkbox might not be needed if gap is sufficient. */
+/* Let's ensure the checkbox itself doesn't have extra margin causing double spacing. */
+#register-client-modal .checkbox-group input[type="checkbox"] {
+    margin-right: 0; /* Rely on parent's gap for spacing */
+     /* Generic style for checkbox input is: width: auto; height: 1em; width: 1em; */
+     /* This should be fine. */
+}
+
+
+/* Submit button styling - .auth-button provides most styles (width: 100%).
+   Add margin-top as requested. */
+#register-client-modal form button[type="submit"].auth-button {
+    margin-top: 1rem; /* Spacing before the button */
+    /* padding: 12px; - .auth-button has padding: 0.85rem; which is about 13.6px. Close enough. */
+}
+
+/* Message area styling - .message-area provides base.
+   Generic .message-area has margin-top: 1.5rem. Task asks for 1rem. */
+#register-client-modal .message-area {
+    margin-top: 1rem; /* Adjusted from generic 1.5rem */
+}
