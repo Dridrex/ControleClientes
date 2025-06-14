@@ -19,6 +19,7 @@
                 
                 <div id="client-management-section">
                     <h3>Clientes da Filial</h3>
+                    <button id="register-client-button">Cadastrar Cliente</button>
                     <div id="client-list-container">
                         <ul id="client-list">
                             </ul>
@@ -55,6 +56,16 @@
                             <button type="submit" class="auth-button" data-original-text="Salvar Alterações">Salvar Alterações</button>
                             <p id="edit-client-message" class="message-area"></p>
                         </form>
+                    </div>
+                </div>
+
+                <div id="values-client-modal" class="modal hidden">
+                    <div class="modal-content">
+                        <span id="close-values-modal-button" class="close-modal-button">&times;</span>
+                        <h4>Valores do Cliente</h4>
+                        <p>Conta Assinada: <span id="total-account-value">Carregando...</span></p>
+                        <p>Total Compras: <span id="total-purchases-value">Carregando...</span></p>
+                        <p id="values-client-message" class="message-area"></p>
                     </div>
                 </div>
             </section>

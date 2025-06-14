@@ -180,3 +180,89 @@ body {
     margin-right: 8px;
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Styles for Register Client Button */
+#register-client-button {
+    /* Assuming it should look like .auth-button */
+    padding: 0.85rem; /* from .auth-button */
+    border: none;
+    border-radius: var(--border-radius);
+    background-color: var(--primary-color);
+    color: white;
+    font-size: 1.1rem; /* from .auth-button */
+    font-weight: 600; /* from .auth-button */
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: inline-block; /* Or block, to respect margins */
+    text-align: center;
+    margin-bottom: 15px;
+    /* If it takes full width like .auth-button, add width: 100% or specific width */
+    /* For now, let's make it not full width by default unless specified */
+}
+#register-client-button:hover {
+    background-color: var(--primary-hover);
+}
+
+/* Styles for Values Client Button in List */
+.values-client-button {
+    padding: 0.4rem 0.8rem; /* similar to .edit-client-button */
+    font-size: 0.9rem; /* similar to .edit-client-button */
+    background-color: var(--secondary-color); /* similar to .edit-client-button */
+    color: white; /* Ensure text is white like other buttons */
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-left: 5px;
+}
+.values-client-button:hover {
+    background-color: var(--secondary-hover); /* similar to .edit-client-button */
+}
+
+/* Styles for Values Client Modal */
+/* .modal and .hidden are already defined and provide base styling */
+/* Styling for the content area of the values modal, similar to edit modal */
+#values-client-modal .modal-content {
+    background-color: var(--surface-color);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    width: 90%;
+    max-width: 450px; /* Slightly smaller or adjust as needed */
+    position: relative;
+    /* transform and transition are handled by .modal and .modal:not(.hidden) .modal-content */
+}
+
+#values-client-modal .modal-content h4 {
+    margin-top: 0; /* Remove default top margin if any */
+    margin-bottom: 1.5rem; /* As per .modal-content h4 */
+    font-size: 1.5rem; /* As per .modal-content h4 */
+    text-align: center; /* As per .modal-content h4 */
+}
+
+#values-client-modal .modal-content p {
+    margin-bottom: 10px;
+    font-size: 1rem;
+    color: var(--text-color); /* Ensure consistent text color */
+}
+#values-client-modal .modal-content p strong { /* If using strong tags inside p */
+    font-weight: 600;
+}
+#values-client-modal .modal-content p span { /* For the value part */
+    font-weight: normal;
+    color: var(--text-light); /* Lighter text for values or 'Carregando...' */
+}
+#values-client-modal .modal-content p span#total-account-value,
+#values-client-modal .modal-content p span#total-purchases-value {
+    font-weight: bold; /* Make the actual values bold */
+    color: var(--primary-color); /* Highlight the values */
+}
+#values-client-modal .modal-content p#values-client-message {
+    margin-top: 1rem; /* Space above message area */
+    min-height: 1.2em;
+    font-weight: 600;
+}
+/* .message-area.error and .message-area.success already defined and should apply */
+
+/* Ensure close button is styled if not covered by existing .close-modal-button */
+/* #close-values-modal-button is already classed with .close-modal-button, so it should inherit styles. */
