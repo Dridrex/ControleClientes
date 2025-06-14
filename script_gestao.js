@@ -34,6 +34,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const valuesClientMessage = document.getElementById('values-client-message'); // Already defined, good.
     // Spans for values will be fetched inside openValuesModal
 
+    // Selectors for Register Client Modal
+    const registerClientModal = document.getElementById('register-client-modal');
+    const closeRegisterModalButton = document.getElementById('close-register-modal-button');
+    const registerClientForm = document.getElementById('register-client-form');
+    const registerNomeUsuario = document.getElementById('register-nome-usuario');
+    const registerEmail = document.getElementById('register-email');
+    const registerSenha = document.getElementById('register-senha');
+    const registerAdm = document.getElementById('register-adm');
+    const registerPermissCrediario = document.getElementById('register-permiss-crediario');
+    const registerClientMessage = document.getElementById('register-client-message');
+
 
     function displayMessage(element, text, type = 'error') { // Pode ser movida para um utils.js
         if (!element) return;
@@ -231,14 +242,150 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function registerNewUser(nome_usuario, email, password, adm, permiss_crediario) {
+        if (!registerClientMessage || !registerClientForm || !registerClientModal) {
+            console.error("Elementos do modal de registro não encontrados para registerNewUser.");
+            return;
+        }
+        displayMessage(registerClientMessage, 'Registrando novo cliente...', 'success');
+
+        try {
+            // Step 1: Create Auth User (Supabase SignUp)
+            const { data: authData, error: authError } = await _supabase.auth.signUp({ email, password });
+
+            if (authError) {
+                displayMessage(registerClientMessage, `Erro ao criar autenticação: ${authError.message}`, 'error');
+                console.error('Erro Supabase SignUp:', authError);
+                return;
+            }
+            if (!authData.user) {
+                displayMessage(registerClientMessage, 'Erro: Usuário não foi criado na autenticação, mas não houve erro explícito.', 'error');
+                console.error('Supabase SignUp retornou sem erro, mas sem usuário:', authData);
+                return;
+            }
+
+            const userId = authData.user.id;
+
+            // Step 2: Add User to 'usuarios' Table
+            // Note: Supabase policies should allow this insert.
+            // 'client' is set to true by default for new registrations from this form.
+            const { error: insertError } = await _supabase
+                .from('usuarios')
+                .insert([{
+                    id: userId,
+                    nome_usuario,
+                    email,
+                    adm,
+                    client: true, // New users from this form are clients
+                    permiss_crediario
+                }]);
+
+            if (insertError) {
+                displayMessage(registerClientMessage, `Erro ao salvar dados do usuário: ${insertError.message}`, 'error');
+                console.error('Erro ao inserir em usuarios:', insertError);
+                // Consider: Attempt to delete the auth user if this fails.
+                // For now, this might leave an orphaned auth user if the profile insert fails.
+                // e.g., await _supabase.auth.admin.deleteUser(userId) // Requires admin privileges, complex for client-side
+                console.error('Falha ao inserir em usuarios após signUp. ID do Auth User:', userId);
+                return;
+            }
+
+            // Step 3: Success
+            displayMessage(registerClientMessage, 'Cliente registrado com sucesso!', 'success');
+            await fetchBranchClients(); // Refresh the client list
+
+            setTimeout(() => {
+                if (registerClientModal) registerClientModal.classList.add('hidden');
+            }, 1500);
+
+            if(registerClientForm) registerClientForm.reset();
+
+        } catch (error) { // Catch any unexpected errors during the process
+            console.error('Erro inesperado durante o registro:', error);
+            displayMessage(registerClientMessage, `Erro inesperado: ${error.message}`, 'error');
+        }
+    }
+
+    async function handleRegisterClientSubmit(event) {
+        event.preventDefault();
+        if (!registerClientForm || !registerNomeUsuario || !registerEmail || !registerSenha || !registerAdm || !registerPermissCrediario || !registerClientMessage) {
+            console.error("Elementos do formulário de registro não encontrados.");
+            return;
+        }
+
+        const submitButton = registerClientForm.querySelector('button[type="submit"]');
+        // Ensure original text is set for toggleLoading
+        if (submitButton && !submitButton.dataset.originalText) {
+            submitButton.dataset.originalText = submitButton.textContent;
+        }
+
+        toggleLoading(submitButton, true);
+        displayMessage(registerClientMessage, '', 'success'); // Clear previous messages
+
+        const nome_usuario = registerNomeUsuario.value.trim();
+        const email = registerEmail.value.trim();
+        const password = registerSenha.value; // No trim for password
+        const adm = registerAdm.checked;
+        const permiss_crediario = registerPermissCrediario.checked;
+
+        // Client-side Validation
+        if (!nome_usuario || !email || !password) {
+            displayMessage(registerClientMessage, "Nome de usuário, email e senha são obrigatórios.", 'error');
+            toggleLoading(submitButton, false);
+            return;
+        }
+        // Basic email validation (can be more complex)
+        if (!email.includes('@') || !email.includes('.')) {
+            displayMessage(registerClientMessage, "Formato de email inválido.", 'error');
+            toggleLoading(submitButton, false);
+            return;
+        }
+        if (password.length < 6) { // Supabase default minimum password length
+             displayMessage(registerClientMessage, "A senha deve ter pelo menos 6 caracteres.", 'error');
+            toggleLoading(submitButton, false);
+            return;
+        }
+
+
+        try {
+            await registerNewUser(nome_usuario, email, password, adm, permiss_crediario);
+        } catch (error) { // Should be caught by registerNewUser, but as a fallback
+            console.error("Erro não capturado por registerNewUser:", error);
+            displayMessage(registerClientMessage, `Erro crítico no processo de registro: ${error.message}`, 'error');
+        } finally {
+            toggleLoading(submitButton, false);
+        }
+    }
+
     // --- PROTEÇÃO DA PÁGINA E CARREGAMENTO INICIAL DE DADOS ---
     async function initializePage() {
         // Event listener para o botão "Cadastrar Cliente"
-        if (registerClientButton) {
+        if (registerClientButton && registerClientModal && registerClientForm && registerClientMessage) {
             registerClientButton.addEventListener('click', () => {
-                console.log('Botão "Cadastrar Cliente" clicado.');
-                // Futuramente, abriria um modal de cadastro ou redirecionaria
+                registerClientModal.classList.remove('hidden');
+                registerClientMessage.textContent = '';
+                registerClientMessage.className = 'message-area';
+                registerClientForm.reset(); // Reseta os campos do formulário
             });
+        }
+
+        // Close logic for Register Client Modal
+        if (closeRegisterModalButton && registerClientModal) {
+            closeRegisterModalButton.addEventListener('click', () => {
+                registerClientModal.classList.add('hidden');
+            });
+        }
+        if (registerClientModal) {
+            registerClientModal.addEventListener('click', (event) => {
+                if (event.target === registerClientModal) {
+                    registerClientModal.classList.add('hidden');
+                }
+            });
+        }
+
+        // Event listener for Register Client Form submission
+        if (registerClientForm) {
+            registerClientForm.addEventListener('submit', handleRegisterClientSubmit);
         }
 
         // Lógica básica para o modal "Valores"
