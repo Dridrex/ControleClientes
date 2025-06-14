@@ -107,6 +107,11 @@ body {
 
 .hidden { display: none !important; }
 
+/* Class to hide fields specifically for admin registration path by default */
+.admin-only-field {
+    display: none;
+}
+
 #client-management-section {
     margin-top: 2rem;
     padding: 1.5rem;
