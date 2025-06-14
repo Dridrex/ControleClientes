@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    let currentUserIsAdmin = false; // Global variable for admin status
     console.log('Gestao Script Loaded.');
 
     if (typeof supabase === 'undefined') {
@@ -74,14 +75,19 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const { data: profile, error, status } = await _supabase
                 .from('usuarios')
-                .select('nome_usuario')
+                .select('nome_usuario, adm') // Fetch adm status
                 .eq('id', user.id)
                 .single();
             if (error && status !== 406) throw error;
+
             userGreeting.textContent = (profile && profile.nome_usuario) ? `Olá, ${profile.nome_usuario}` : `Olá, ${user.email.split('@')[0]}`;
+            currentUserIsAdmin = profile ? profile.adm : false;
+            // console.log("User admin status:", currentUserIsAdmin); // For debugging. Removed redundant fetchBranchClients.
         } catch (error) {
             console.error('Erro ao buscar perfil do usuário:', error.message);
             userGreeting.textContent = `Olá, ${user.email.split('@')[0]}`;
+            currentUserIsAdmin = false; // Default to false on error
+            // Removed redundant fetchBranchClients. fetchBranchClients is called in initializePage after this.
         }
     }
 
@@ -111,18 +117,23 @@ document.addEventListener('DOMContentLoaded', () => {
             listItem.innerHTML = `
                 <div class="client-info">
                     <strong>${clientProfile.nome_usuario || 'Nome não informado'}</strong>
-                    <span>${clientProfile.email}</span>
+                    <span>${clientProfile.email || 'Email não disponível'}</span>
                 </div>
-                <button class="edit-client-button" data-id="${clientProfile.id}">Editar</button>
-                <button class="values-client-button" data-id="${clientProfile.id}">Valores</button>
+                <div class="client-actions">
+                    ${currentUserIsAdmin ? `<button class="edit-client-button" data-id="${clientProfile.id}">Editar</button>` : ''}
+                    <button class="values-client-button" data-id="${clientProfile.id}">Valores</button>
+                </div>
             `;
             clientList.appendChild(listItem);
 
-            const editButton = listItem.querySelector('.edit-client-button');
-            if (editButton) { // Adicionar verificação para segurança
-                editButton.addEventListener('click', () => {
-                    openEditModal(clientProfile);
-                });
+            // Event listener for edit button (only add if admin)
+            if (currentUserIsAdmin) {
+                const editButton = listItem.querySelector('.edit-client-button');
+                if (editButton) {
+                    editButton.addEventListener('click', () => {
+                        openEditModal(clientProfile);
+                    });
+                }
             }
 
             const valuesButton = listItem.querySelector('.values-client-button');
@@ -245,65 +256,89 @@ document.addEventListener('DOMContentLoaded', () => {
     async function registerNewUser(nome_usuario, email, password, adm, permiss_crediario) {
         if (!registerClientMessage || !registerClientForm || !registerClientModal) {
             console.error("Elementos do modal de registro não encontrados para registerNewUser.");
-            return;
+            return; // Should be caught by calling function's try/catch/finally for toggleLoading
         }
-        displayMessage(registerClientMessage, 'Registrando novo cliente...', 'success');
 
-        try {
-            // Step 1: Create Auth User (Supabase SignUp)
-            const { data: authData, error: authError } = await _supabase.auth.signUp({ email, password });
+        // The 'adm' parameter from handleRegisterClientSubmit dictates the logic path.
+        if (adm) {
+            // Admin Registration Path
+            displayMessage(registerClientMessage, 'Registrando novo administrador...', 'success');
+            try {
+                const { data: authData, error: authError } = await _supabase.auth.signUp({ email, password });
 
-            if (authError) {
-                displayMessage(registerClientMessage, `Erro ao criar autenticação: ${authError.message}`, 'error');
-                console.error('Erro Supabase SignUp:', authError);
-                return;
+                if (authError) {
+                    displayMessage(registerClientMessage, `Erro ao criar autenticação para admin: ${authError.message}`, 'error');
+                    console.error('Erro Supabase SignUp (Admin):', authError);
+                    return;
+                }
+                if (!authData.user) {
+                    displayMessage(registerClientMessage, 'Erro: Administrador não foi criado na autenticação.', 'error');
+                    console.error('Supabase SignUp (Admin) retornou sem erro, mas sem usuário:', authData);
+                    return;
+                }
+
+                const userId = authData.user.id;
+                const { error: insertError } = await _supabase
+                    .from('usuarios')
+                    .insert([{
+                        id: userId,
+                        nome_usuario,
+                        email,
+                        adm: true,
+                        client: false, // Admins are not end-customer type clients
+                        permiss_crediario
+                    }]);
+
+                if (insertError) {
+                    displayMessage(registerClientMessage, `Erro ao salvar dados do administrador: ${insertError.message}`, 'error');
+                    console.error('Erro ao inserir admin em usuarios:', insertError, 'Auth User ID:', userId);
+                    // Consider logic to delete authData.user if this part fails.
+                    return;
+                }
+
+                displayMessage(registerClientMessage, 'Administrador registrado com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro inesperado durante o registro do administrador:', error);
+                displayMessage(registerClientMessage, `Erro inesperado (admin): ${error.message}`, 'error');
+                return; // Ensure flow stops here on unexpected error
             }
-            if (!authData.user) {
-                displayMessage(registerClientMessage, 'Erro: Usuário não foi criado na autenticação, mas não houve erro explícito.', 'error');
-                console.error('Supabase SignUp retornou sem erro, mas sem usuário:', authData);
-                return;
+        } else {
+            // Client (End-Customer) Registration Path
+            displayMessage(registerClientMessage, 'Registrando novo cliente...', 'success');
+            try {
+                const { data: insertedClient, error: insertError } = await _supabase
+                    .from('usuarios')
+                    .insert([{
+                        nome_usuario,
+                        email: null, // Email is explicitly null for non-admin clients
+                        adm: false,
+                        client: true, // This is an end-customer type client
+                        permiss_crediario
+                    }])
+                    .select();
+
+                if (insertError) {
+                    displayMessage(registerClientMessage, `Erro ao salvar dados do cliente: ${insertError.message}`, 'error');
+                    console.error('Erro ao inserir cliente em usuarios:', insertError);
+                    return;
+                }
+
+                console.log('Cliente registrado (sem auth):', insertedClient);
+                displayMessage(registerClientMessage, 'Cliente registrado com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro inesperado durante o registro do cliente:', error);
+                displayMessage(registerClientMessage, `Erro inesperado (cliente): ${error.message}`, 'error');
+                return; // Ensure flow stops here on unexpected error
             }
-
-            const userId = authData.user.id;
-
-            // Step 2: Add User to 'usuarios' Table
-            // Note: Supabase policies should allow this insert.
-            // 'client' is set to true by default for new registrations from this form.
-            const { error: insertError } = await _supabase
-                .from('usuarios')
-                .insert([{
-                    id: userId,
-                    nome_usuario,
-                    email,
-                    adm,
-                    client: true, // New users from this form are clients
-                    permiss_crediario
-                }]);
-
-            if (insertError) {
-                displayMessage(registerClientMessage, `Erro ao salvar dados do usuário: ${insertError.message}`, 'error');
-                console.error('Erro ao inserir em usuarios:', insertError);
-                // Consider: Attempt to delete the auth user if this fails.
-                // For now, this might leave an orphaned auth user if the profile insert fails.
-                // e.g., await _supabase.auth.admin.deleteUser(userId) // Requires admin privileges, complex for client-side
-                console.error('Falha ao inserir em usuarios após signUp. ID do Auth User:', userId);
-                return;
-            }
-
-            // Step 3: Success
-            displayMessage(registerClientMessage, 'Cliente registrado com sucesso!', 'success');
-            await fetchBranchClients(); // Refresh the client list
-
-            setTimeout(() => {
-                if (registerClientModal) registerClientModal.classList.add('hidden');
-            }, 1500);
-
-            if(registerClientForm) registerClientForm.reset();
-
-        } catch (error) { // Catch any unexpected errors during the process
-            console.error('Erro inesperado durante o registro:', error);
-            displayMessage(registerClientMessage, `Erro inesperado: ${error.message}`, 'error');
         }
+
+        // Common success actions for both paths
+        await fetchBranchClients(); // Refresh the client list
+        setTimeout(() => {
+            if (registerClientModal) registerClientModal.classList.add('hidden');
+        }, 1500);
+        if (registerClientForm) registerClientForm.reset();
+        // Note: toggleLoading is handled by the calling function handleRegisterClientSubmit's finally block.
     }
 
     async function handleRegisterClientSubmit(event) {
@@ -329,21 +364,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const permiss_crediario = registerPermissCrediario.checked;
 
         // Client-side Validation
-        if (!nome_usuario || !email || !password) {
-            displayMessage(registerClientMessage, "Nome de usuário, email e senha são obrigatórios.", 'error');
+        if (!nome_usuario) { // Nome is always required
+            displayMessage(registerClientMessage, "Nome de usuário é obrigatório.", 'error');
             toggleLoading(submitButton, false);
             return;
         }
-        // Basic email validation (can be more complex)
-        if (!email.includes('@') || !email.includes('.')) {
-            displayMessage(registerClientMessage, "Formato de email inválido.", 'error');
-            toggleLoading(submitButton, false);
-            return;
-        }
-        if (password.length < 6) { // Supabase default minimum password length
-             displayMessage(registerClientMessage, "A senha deve ter pelo menos 6 caracteres.", 'error');
-            toggleLoading(submitButton, false);
-            return;
+
+        if (adm) { // Email and password only required if registering an admin
+            if (!email || !password) {
+                displayMessage(registerClientMessage, "Email e senha são obrigatórios para cadastrar um administrador.", 'error');
+                toggleLoading(submitButton, false);
+                return;
+            }
+            if (!email.includes('@') || !email.includes('.')) {
+                displayMessage(registerClientMessage, "Formato de email inválido para administrador.", 'error');
+                toggleLoading(submitButton, false);
+                return;
+            }
+            if (password.length < 6) { // Supabase default minimum password length
+                 displayMessage(registerClientMessage, "A senha para administrador deve ter pelo menos 6 caracteres.", 'error');
+                toggleLoading(submitButton, false);
+                return;
+            }
+        } else {
+            // If not registering an admin, email and password might not be sent or used by Supabase Auth if policies allow
+            // For this implementation, we assume if not admin, no Supabase auth user is created, so email/pass are not used.
+            // This part of registerNewUser function will need adjustment if non-admins also create auth.users
         }
 
 
@@ -358,15 +404,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- PROTEÇÃO DA PÁGINA E CARREGAMENTO INICIAL DE DADOS ---
+
+    function updateAdminFieldsVisibility() {
+        if (!registerAdm || !registerEmail || !registerSenha) { // Ensure elements exist
+            console.warn("Campos de admin ou checkbox não encontrados para updateAdminFieldsVisibility");
+            return;
+        }
+        const adminFields = document.querySelectorAll('#register-client-form .admin-only-field');
+
+        if (registerAdm.checked) {
+            adminFields.forEach(field => field.style.display = 'block');
+            registerEmail.required = true;
+            registerSenha.required = true;
+        } else {
+            adminFields.forEach(field => field.style.display = 'none');
+            registerEmail.value = ''; // Clear values when hiding
+            registerSenha.value = '';
+            registerEmail.required = false;
+            registerSenha.required = false;
+        }
+    }
+
     async function initializePage() {
         // Event listener para o botão "Cadastrar Cliente"
-        if (registerClientButton && registerClientModal && registerClientForm && registerClientMessage) {
+        if (registerClientButton && registerClientModal && registerClientForm && registerClientMessage && registerAdm) {
             registerClientButton.addEventListener('click', () => {
                 registerClientModal.classList.remove('hidden');
                 registerClientMessage.textContent = '';
                 registerClientMessage.className = 'message-area';
-                registerClientForm.reset(); // Reseta os campos do formulário
+                registerClientForm.reset();
+                registerAdm.checked = false; // Explicitly uncheck admin for new form
+                updateAdminFieldsVisibility(); // Update visibility based on unchecked admin
             });
+        }
+
+        // Event listener for the Admin checkbox in registration form
+        if (registerAdm) {
+            registerAdm.addEventListener('change', updateAdminFieldsVisibility);
         }
 
         // Close logic for Register Client Modal
